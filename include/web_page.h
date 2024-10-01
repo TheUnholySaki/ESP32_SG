@@ -278,9 +278,6 @@ const char PAGE_MAIN[] PROGMEM = R"=====(
         return xmlHttp;
     }
 
-    // function to handle button press from HTML code above
-    // and send a processing string back to server
-    // this processing string is use in the .on method
     function ButtonPress0() {
         var xhttp = new XMLHttpRequest();
         var message;
@@ -378,13 +375,13 @@ const char PAGE_MAIN[] PROGMEM = R"=====(
         // //document.getElementById("b0").style.backgroundColor=color;
         // //document.getElementById("b0").style.borderRadius="5px";
 
-        // xmldoc = xmlResponse.getElementsByTagName("V0"); //volts for A0
-        // message = xmldoc[0].firstChild.nodeValue;
-        // document.getElementById("v0").innerHTML = message;
-        // document.getElementById("v0").style.width = (barwidth + "%");
-        // // you can set color dynamically, maybe blue below a value, red above
-        // document.getElementById("v0").style.backgroundColor = color;
-        // //document.getElementById("v0").style.borderRadius="5px";
+        xmldoc = xmlResponse.getElementsByTagName("V0"); //volts for A0
+        message = xmldoc[0].firstChild.nodeValue;
+        document.getElementById("v0").innerHTML = message;
+        document.getElementById("v0").style.width = (barwidth + "%");
+        // you can set color dynamically, maybe blue below a value, red above
+        document.getElementById("v0").style.backgroundColor = color;
+        //document.getElementById("v0").style.borderRadius="5px";
 
         // // A1
         // xmldoc = xmlResponse.getElementsByTagName("B1");
@@ -401,17 +398,10 @@ const char PAGE_MAIN[] PROGMEM = R"=====(
         // document.getElementById("b1").style.backgroundColor = color;
         // //document.getElementById("b1").style.borderRadius="5px";
 
-        // xmldoc = xmlResponse.getElementsByTagName("V1");
-        // message = xmldoc[0].firstChild.nodeValue;
-        // document.getElementById("v1").innerHTML = message;
-        // document.getElementById("v1").style.width = (width + "%");
-        // document.getElementById("v1").style.backgroundColor = color;
-        // //document.getElementById("v1").style.borderRadius="5px";
-
         xmldoc = xmlResponse.getElementsByTagName("LED");
         message = xmldoc[0].firstChild.nodeValue;
 
-        if (message == 0) {
+        if (message == 1) {
             document.getElementById("btn0").innerHTML = "Turn ON";
         }
         else {
@@ -434,13 +424,8 @@ const char PAGE_MAIN[] PROGMEM = R"=====(
     //     }
     }
 
-    // general processing code for the web page to ask for an XML steam
-    // this is actually why you need to keep sending data to the page to 
-    // force this call with stuff like this
-    // server.on("/xml", SendXML);
-    // otherwise the page will not request XML from the ESP, and updates will not happen
-    function process() {
 
+    function process() {
         if (xmlHttp.readyState == 0 || xmlHttp.readyState == 4) {
             xmlHttp.open("PUT", "xml", true);
             xmlHttp.onreadystatechange = response;
