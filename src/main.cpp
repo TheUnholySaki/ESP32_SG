@@ -8,6 +8,7 @@
 
 /* CONSTANTS ===============================*/
 #define MOIST_SENSE A4
+#define VBAT_SENSE A5
 
 #define SENSOR_UPD_INTERVAL 50
 #define SERVER_UPD_INTERVAL 1000
@@ -39,7 +40,10 @@ bool led_builtin_state = false;
 void SendWebsite(void);
 void SendXML(void);
 void turnon_led_builtin(void);
-void lcd_print_ip_adr(IPAddress ip_adr);
+void lcd_print_ip_adr(void *parameter);
+void lcd_counter(void *parameter);
+void upd_sensor(void *parameter);
+void upd_webpage(void *parameter);
 
 void setup()
 {
@@ -62,7 +66,7 @@ void setup()
   while (WiFi.status() != WL_CONNECTED)
   {
     Serial.print(".");
-    
+
     lcd.clear();
     lcd.setCursor(0, 0);
     lcd.print("Connecting");
@@ -81,51 +85,92 @@ void setup()
 
   server.begin();
 
-  // initialize LCD
-  
-  // turn on LCD backlight
-  // lcd.backlight();
-  sensor_upd_timer = millis();
+  lcd.clear();
+
+  xTaskCreate(
+      lcd_counter, // Function name of the task
+      "lcd_counter",   // Name of the task (e.g. for debugging)
+      2048,        // Stack size (bytes)
+      NULL,        // Parameter to pass
+      1,           // Task priority
+      NULL         // Task handle
+  );
+
+  xTaskCreate(
+      lcd_print_ip_adr, // Function name of the task
+      "lcd_print_ip_adr",      // Name of the task (e.g. for debugging)
+      2048,             // Stack size (bytes)
+      NULL,             // Parameter to pass
+      2,                // Task priority
+      NULL              // Task handle
+  );
+
+  xTaskCreate(
+      upd_sensor, // Function name of the task
+      "upd_sensor",   // Name of the task (e.g. for debugging)
+      2048,          // Stack size (bytes)
+      NULL,          // Parameter to pass
+      3,             // Task priority
+      NULL           // Task handle
+  );
+
+  xTaskCreate(
+      upd_webpage, // Function name of the task
+      "upd_webpage", // Name of the task (e.g. for debugging)
+      2048,        // Stack size (bytes)
+      NULL,        // Parameter to pass
+      4,           // Task priority
+      NULL         // Task handle
+  );
 }
-int count = 0;
+void lcd_counter(void *parameter)
+{
+  uint32_t count = 0;
+  for (;;)
+  {
+    lcd.setCursor(0, 1);
+    lcd.print(count++);
+    delay(1000);
+  }
+}
+
+void lcd_print_ip_adr(void *parameter)
+{
+  for (;;)
+  {
+    lcd.setCursor(0, 0);
+    lcd.print(WiFi.localIP());
+    delay(5000);
+  }
+}
+
+void upd_sensor(void *parameter)
+{
+  for (;;)
+  {
+    moist_val = analogRead(MOIST_SENSE) >> 9;
+    delay(SENSOR_UPD_INTERVAL);
+  }
+}
+
+void upd_webpage(void *parameter)
+{
+  for (;;)
+  {
+    server.handleClient();
+    delay(SERVER_UPD_INTERVAL);
+  }
+}
 
 void loop()
 {
-  /* Update sensor */
-  if ((millis() - sensor_upd_timer) > SENSOR_UPD_INTERVAL)
-  {
-    sensor_upd_timer = millis();
-
-    moist_val = analogRead(MOIST_SENSE) >> 9;
-  }
-
-  /* Refresh webpage */
-  if ((millis() - server_upd_timer) > SERVER_UPD_INTERVAL)
-  {
-    server_upd_timer = millis();
-
-    server.handleClient();
-    lcd.clear();
-    lcd_print_ip_adr(WiFi.localIP());
-    lcd.setBacklight(1);
-    
-  }
 }
 
-void lcd_print_ip_adr(IPAddress ip_adr)
-{
-  lcd.setCursor(0, 0);
-  lcd.print(ip_adr);
-}
 
-int testing;
-
+/* Web API handling*/
 void SendWebsite(void)
 {
   Serial.println("User connects, updating web page");
-  
-  lcd.setCursor(0, 1);
-  lcd.print("Hi user");
   server.send(200, "text/html", PAGE_MAIN);
 }
 
