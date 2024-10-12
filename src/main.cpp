@@ -118,6 +118,8 @@ void lcd_print_ip_adr(IPAddress ip_adr)
   lcd.print(ip_adr);
 }
 
+int testing;
+
 void SendWebsite(void)
 {
   Serial.println("User connects, updating web page");
