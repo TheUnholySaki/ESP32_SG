@@ -8,10 +8,22 @@
 
 /* CONSTANTS ===============================*/
 #define MOIST_SENSE A4
-#define VBAT_SENSE A5
+#define VBAT_SENSE A6
 
 #define SENSOR_UPD_INTERVAL 50
 #define SERVER_UPD_INTERVAL 1000
+#define IP_ADR_UPD_INTERVAL 10000
+#define LCD_UPD_INTERVAL 1000
+
+#define LCD_ADDRESS 0x27
+#define LCD_COL 16
+#define LCD_ROW 2
+#define KB_SIZE 1024
+
+#define PR_UPD_WEBPAGE 4
+#define PR_UPD_IP_ADR 2
+#define PR_UPD_COUNTER 1
+#define PR_UPD_SENSOR 3
 
 /* WIFI CREDENTIALS*/
 const char *ssid = "BINHPHAM";
@@ -23,15 +35,7 @@ char XML[2048];
 char buf[32];
 
 uint16_t moist_val;
-
-uint32_t sensor_upd_timer = 0;
-uint32_t server_upd_timer = 0;
-
-/* For I2C*/
-
-#define LCD_ADDRESS 0x27
-#define LCD_COL 16
-#define LCD_ROW 2
+uint16_t vbat;
 
 LiquidCrystal_I2C lcd(LCD_ADDRESS, LCD_COL, LCD_ROW);
 /* I/O STA1TES ===============================*/
@@ -41,7 +45,7 @@ void SendWebsite(void);
 void SendXML(void);
 void turnon_led_builtin(void);
 void lcd_print_ip_adr(void *parameter);
-void lcd_counter(void *parameter);
+void lcd_print_vbat(void *parameter);
 void upd_sensor(void *parameter);
 void upd_webpage(void *parameter);
 
@@ -67,7 +71,6 @@ void setup()
   {
     Serial.print(".");
 
-    lcd.clear();
     lcd.setCursor(0, 0);
     lcd.print("Connecting");
 
@@ -85,70 +88,80 @@ void setup()
 
   server.begin();
 
-  lcd.clear();
-
   xTaskCreate(
-      lcd_counter, // Function name of the task
-      "lcd_counter",   // Name of the task (e.g. for debugging)
-      2048,        // Stack size (bytes)
-      NULL,        // Parameter to pass
-      1,           // Task priority
-      NULL         // Task handle
+      lcd_print_ip_adr,   // Function name of the task
+      "lcd_print_ip_adr", // Name of the task (e.g. for debugging)
+      KB_SIZE * 5,        // Stack size (bytes)
+      NULL,               // Parameter to pass
+      PR_UPD_IP_ADR,      // Task priority
+      NULL                // Task handle
   );
 
   xTaskCreate(
-      lcd_print_ip_adr, // Function name of the task
-      "lcd_print_ip_adr",      // Name of the task (e.g. for debugging)
-      2048,             // Stack size (bytes)
+      lcd_print_vbat,   // Function name of the task
+      "lcd_print_vbat", // Name of the task (e.g. for debugging)
+      KB_SIZE * 5,      // Stack size (bytes)
       NULL,             // Parameter to pass
-      2,                // Task priority
+      PR_UPD_COUNTER,   // Task priority
       NULL              // Task handle
   );
 
   xTaskCreate(
-      upd_sensor, // Function name of the task
-      "upd_sensor",   // Name of the task (e.g. for debugging)
-      2048,          // Stack size (bytes)
+      upd_sensor,    // Function name of the task
+      "upd_sensor",  // Name of the task (e.g. for debugging)
+      KB_SIZE * 2,   // Stack size (bytes)
       NULL,          // Parameter to pass
-      3,             // Task priority
+      PR_UPD_SENSOR, // Task priority
       NULL           // Task handle
   );
 
   xTaskCreate(
-      upd_webpage, // Function name of the task
-      "upd_webpage", // Name of the task (e.g. for debugging)
-      2048,        // Stack size (bytes)
-      NULL,        // Parameter to pass
-      4,           // Task priority
-      NULL         // Task handle
+      upd_webpage,    // Function name of the task
+      "upd_webpage",  // Name of the task (e.g. for debugging)
+      KB_SIZE * 10,   // Stack size (bytes)
+      NULL,           // Parameter to pass
+      PR_UPD_WEBPAGE, // Task priority
+      NULL            // Task handle
   );
-}
-void lcd_counter(void *parameter)
-{
-  uint32_t count = 0;
-  for (;;)
-  {
-    lcd.setCursor(0, 1);
-    lcd.print(count++);
-    delay(1000);
-  }
 }
 
 void lcd_print_ip_adr(void *parameter)
 {
   for (;;)
   {
-    lcd.setCursor(0, 0);
-    lcd.print(WiFi.localIP());
-    delay(5000);
+    delay(IP_ADR_UPD_INTERVAL);
+  }
+}
+
+void lcd_print_vbat(void *parameter)
+{
+  for (;;)
+  {
+    if (vbat != 0)
+    {
+      lcd.clear();
+      lcd.setCursor(0, 0);
+      lcd.print(WiFi.localIP());
+      lcd.setCursor(0, 1);
+      float vbat_sense = ((float)vbat * ((float)SENSOR_UPD_INTERVAL / (float)LCD_UPD_INTERVAL))*0.00525;
+      lcd.print(vbat_sense);
+      vbat = 0;
+    }
+    delay(LCD_UPD_INTERVAL);
   }
 }
 
 void upd_sensor(void *parameter)
 {
+  pinMode(VBAT_SENSE, INPUT);
+  pinMode(MOIST_SENSE, INPUT);
+
   for (;;)
   {
     moist_val = analogRead(MOIST_SENSE) >> 9;
+    uint16_t vbat_temp = analogRead(VBAT_SENSE);
+    Serial.println(vbat_temp);
+    vbat += vbat_temp;
     delay(SENSOR_UPD_INTERVAL);
   }
 }
@@ -164,8 +177,9 @@ void upd_webpage(void *parameter)
 
 void loop()
 {
-}
 
+  // delay(SENSOR_UPD_INTERVAL);
+}
 
 /* Web API handling*/
 void SendWebsite(void)
